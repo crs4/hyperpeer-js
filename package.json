@@ -1,0 +1,24 @@
+{
+  "name": "hyperpeer",
+  "version": "0.0.1",
+  "description": "Simple WebRTC-based library for peer-to-peer communication between browsers and media servers using a websockets as signaling channel",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "node ./test/testServer.js & beefy ./test/test.js:bundle.test.js 8886  --index ./test/test.html"
+  },
+  "author": "Jose F. Saenz-Cogollo",
+  "license": "ISC",
+  "devDependencies": {
+    "beefy": "^2.1.8",
+    "chai": "^4.2.0",
+    "hyperpeer-node": "git+ssh://git@156.148.14.162:5000/icare2/hyperpeer-node.git",
+    "mocha": "^5.2.0"
+  },
+  "dependencies": {
+    "eventemitter2": "^5.0.1",
+    "simple-peer": "^9.2.0"
+  }
+}
