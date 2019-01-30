@@ -2,7 +2,7 @@ const chai = require('chai');
 const Hyperpeer = require('../');
 const expect = chai.expect;
 
-const serverAddress = 'localhost:8080';
+const serverAddress = 'ws://localhost:8080';
 let hp = {};
 let hp2 = {};
 /**

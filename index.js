@@ -32,7 +32,7 @@ class Hyperpeer extends EventEmitter2 {
         });
         if (!options) options = {};
         let type = options.type || 'browser';
-        let url = `ws://${serverAddress}/${type}`;
+        let url = `${serverAddress}/${type}`;
         if (options.id) url += '/' + options.id;
         if (options.key) url += '/' + options.key;
 
