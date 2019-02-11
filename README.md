@@ -168,7 +168,7 @@ Send a message to the connected remote peer using the established WebRTC data ch
 <a name="Hyperpeer+event_online"></a>
 
 ### "online"
-Online event. Emmited when successfully connected to the signaling server.
+Online event. Emitted when successfully connected to the signaling server.
 
 **Kind**: event emitted by [<code>Hyperpeer</code>](#Hyperpeer)  
 <a name="Hyperpeer+event_error"></a>
@@ -177,48 +177,67 @@ Online event. Emmited when successfully connected to the signaling server.
 Error event.
 
 **Kind**: event emitted by [<code>Hyperpeer</code>](#Hyperpeer)  
+**Properties**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| error | <code>object</code> | Error object. |
+
 <a name="Hyperpeer+event_close"></a>
 
 ### "close"
-Close event. Emmited when disconnected from the signaling server.
+Close event. Emitted when disconnected from the signaling server.
 
 **Kind**: event emitted by [<code>Hyperpeer</code>](#Hyperpeer)  
 <a name="Hyperpeer+event_connection"></a>
 
 ### "connection"
-Connection event. Emmited when a connection request is received.
+Connection event. Emitted when a connection request is received.
 
 **Kind**: event emitted by [<code>Hyperpeer</code>](#Hyperpeer)  
 **Properties**
 
 | Name | Type | Description |
 | --- | --- | --- |
-| remotePeerId | <code>string</code> | id of the remote peer that request the connection. |
+| details | <code>object</code> |  |
+| details.remotePeerId | <code>string</code> | id of the remote peer that request the connection. |
 
 <a name="Hyperpeer+event_connect"></a>
 
 ### "connect"
-Connect event. Emmited when a WebRTC connection is successfully established with the remote peer.
+Connect event. Emitted when a WebRTC connection is successfully established with the remote peer.
 
 **Kind**: event emitted by [<code>Hyperpeer</code>](#Hyperpeer)  
 <a name="Hyperpeer+event_disconnect"></a>
 
 ### "disconnect"
-Disconnect event. Emmited when disconnected from the remote peer.
+Disconnect event. Emitted when disconnected from the remote peer.
 
 **Kind**: event emitted by [<code>Hyperpeer</code>](#Hyperpeer)  
 <a name="Hyperpeer+event_stream"></a>
 
 ### "stream"
-Stream event. Emmited when a [MediaStream](https://developer.mozilla.org/en-US/docs/Web/API/MediaStream) is received from the remote peer.
+Stream event. Emitted when a [MediaStream](https://developer.mozilla.org/en-US/docs/Web/API/MediaStream) is received from the remote peer.
 
 **Kind**: event emitted by [<code>Hyperpeer</code>](#Hyperpeer)  
+**Properties**
+
+| Type | Description |
+| --- | --- |
+| <code>object</code> | [MediaStream](https://developer.mozilla.org/en-US/docs/Web/API/MediaStream) object |
+
 <a name="Hyperpeer+event_data"></a>
 
 ### "data"
-Data event. Emmited when a data channel message is received from the remote peer.
+Data event. Emitted when a data channel message is received from the remote peer.
 
 **Kind**: event emitted by [<code>Hyperpeer</code>](#Hyperpeer)  
+**Properties**
+
+| Type | Description |
+| --- | --- |
+| <code>\*</code> | Data |
+
 <a name="Hyperpeer.states"></a>
 
 ### Hyperpeer.states : <code>enum</code>

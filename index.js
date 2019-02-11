@@ -429,7 +429,7 @@ Hyperpeer.states = {
  * @property {boolean} busy - Indicates whether the peer is paired and comunicating with another peer.
  */
 /**
- * Online event. Emmited when successfully connected to the signaling server.
+ * Online event. Emitted when successfully connected to the signaling server.
  *
  * @event Hyperpeer#online
  */
@@ -437,40 +437,40 @@ Hyperpeer.states = {
  * Error event.
  *
  * @event Hyperpeer#error
- * @type {object} - Error object.
+ * @property {object} error - Error object.
  */
 /**
- * Close event. Emmited when disconnected from the signaling server.
+ * Close event. Emitted when disconnected from the signaling server.
  *
  * @event Hyperpeer#close
  */
 /**
- * Connection event. Emmited when a connection request is received.
+ * Connection event. Emitted when a connection request is received.
  *
  * @event Hyperpeer#connection
- * @type {object} 
- * @property {string} remotePeerId - id of the remote peer that request the connection.
+ * @property {object} details
+ * @property {string} details.remotePeerId - id of the remote peer that request the connection.
  */
 /**
- * Connect event. Emmited when a WebRTC connection is successfully established with the remote peer.
+ * Connect event. Emitted when a WebRTC connection is successfully established with the remote peer.
  *
  * @event Hyperpeer#connect
  */
 /**
- * Disconnect event. Emmited when disconnected from the remote peer.
+ * Disconnect event. Emitted when disconnected from the remote peer.
  *
  * @event Hyperpeer#disconnect
  */
 /**
- * Stream event. Emmited when a {@link https://developer.mozilla.org/en-US/docs/Web/API/MediaStream|MediaStream} is received from the remote peer.
+ * Stream event. Emitted when a {@link https://developer.mozilla.org/en-US/docs/Web/API/MediaStream|MediaStream} is received from the remote peer.
  *
  * @event Hyperpeer#stream
- * @type {object} - {@link https://developer.mozilla.org/en-US/docs/Web/API/MediaStream|MediaStream} object
+ * @property {object} - {@link https://developer.mozilla.org/en-US/docs/Web/API/MediaStream|MediaStream} object
  */
 /**
- * Data event. Emmited when a data channel message is received from the remote peer.
+ * Data event. Emitted when a data channel message is received from the remote peer.
  *
  * @event Hyperpeer#data
- * @type {*} - Data
+ * @property {*} - Data
  */
 module.exports = Hyperpeer;
