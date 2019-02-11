@@ -1,0 +1,61 @@
+# hyperpeer
+hyperpeer is the javascript module for implementing browser peers in applications based on Hyperpeer.
+This module provides a single class called [`Hyperpeer`](#Hyperpeer) which manages both the connection 
+with the signaling server and the peer-to-peer communication via WebRTC with remote peers.
+
+# Features
+
+* Simple node.js style API.
+* Based on the popular modules [simple-peer](https://github.com/feross/simple-peer/), [ws](https://github.com/websockets/ws), 
+and [EventEmitter2](https://www.npmjs.com/package/eventemitter2).
+* Works in the browser with [browserify](http://browserify.org/).
+
+# Example
+```js
+const Hyperpeer = require('hyperpeer')
+const serverAddress = 'ws://localhost:8080';
+
+let video = document.getElementById('video');
+
+navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+.then((stream) => {
+    let hp = new Hyperpeer(serverAddress, { 
+        id: 'id1', 
+        type: 'type1',
+        stream: stream,
+        videoElement: video
+    });
+    hp.on('online', () => {
+        hp.getPeers()
+        .then((peers) => {
+            if (peers.length) {
+                return hp.connectTo(peers[0].id)
+            }
+            hp.on('connection', hp.acceptConnection);
+            return hp.listenConnections()
+        })
+        .catch((error) => { alert(error) })
+    })
+
+    hp.on('connect', () => {
+        console.log('Peer-to-peer connection established!')
+        hp.send('ciao')
+    })
+
+    hp.on('data', (data) => {
+        console.log('Remote peer says: ' + data)
+    })
+
+    hp.on('error', (error) => {
+        alert('Hyperpeer Error: ' + error)
+    })
+})
+.catch((error) => {
+    alert('mediaDevices error: ' + error)
+}); 
+
+ ```
+
+# API Reference
+
+{{>main}}

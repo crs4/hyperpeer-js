@@ -7,7 +7,8 @@
     "test": "test"
   },
   "scripts": {
-    "test": "node ./test/testServer.js & beefy ./test/test.js:bundle.test.js 8886  --index ./test/test.html"
+    "test": "node ./test/testServer.js & beefy ./test/test.js:bundle.test.js 8886  --index ./test/test.html",
+    "doc": "jsdoc2md -t jsdoc2md/README.hbs index.js > README.md"
   },
   "author": "Jose F. Saenz-Cogollo",
   "license": "ISC",
@@ -15,6 +16,7 @@
     "beefy": "^2.1.8",
     "chai": "^4.2.0",
     "hyperpeer-node": "git+ssh://git@156.148.14.162:5000/icare2/hyperpeer-node.git",
+    "jsdoc-to-markdown": "^4.0.1",
     "mocha": "^5.2.0"
   },
   "dependencies": {

@@ -1,6 +1,13 @@
 const EventEmitter2 = require('eventemitter2').EventEmitter2;
 const SimplePeer = require('simple-peer');
 
+/**
+ *
+ *
+ * @class HyperpeerError
+ * @extends {Error}
+ * @private
+ */
 class HyperpeerError extends Error {
     constructor(code, message, data) {
         super(message + ': ' + JSON.stringify(data));
@@ -11,6 +18,13 @@ class HyperpeerError extends Error {
     }
 }
 
+/**
+ *
+ *
+ * @class SignalingError
+ * @extends {HyperpeerError}
+ * @private
+ */
 class SignalingError extends HyperpeerError {
     constructor(code, message, data) {
         super(code, message, data);
@@ -18,6 +32,13 @@ class SignalingError extends HyperpeerError {
     }
 }
 
+/**
+ *
+ *
+ * @class PeerConnectionError
+ * @extends {HyperpeerError}
+ * @private
+ */
 class PeerConnectionError extends HyperpeerError {
     constructor(code, message, data) {
         super(code, message, data);
@@ -25,6 +46,28 @@ class PeerConnectionError extends HyperpeerError {
     }
 }
 
+/**
+ * An instance of the Hyperpeer class is an {@link https://www.npmjs.com/package/eventemitter2|EventEmitter} that represents the local peer in a WebRTC application based in Hyperpeer.
+ * Hyperpeer instances manages both the connection with the signaling server and the peer-to-peer communication via WebRTC with remote peers.
+ *
+ * @class Hyperpeer
+ * @extends {EventEmitter2}
+ * @param {string} serverAddress - URL of the Hyperpeer signaling server, it should include the protocol prefix 'ws://' or 'wss//' that specify the websocket protocol to use. 
+ * @param {Object} options - Peer settings
+ * @param {string} [options.type=browser] - Peer type. It can be used by other peers to know the role of the peer in the current application.
+ * @param {string=} options.id - Peer unique identification string. Must be unique among all connected peers. If it's undefined or null, the server will assign a random string.
+ * @param {string=} options.key - Peer validation string. It may be used by the server to verify the peer.
+ * @param {Object=} options.videoElement - Video tag element that will be used as sink of the incoming media stream.
+ * @param {Object=} options.stream - {@link https://developer.mozilla.org/en-US/docs/Web/API/MediaStream|MediaStream} object that will be sent to the remote peer.
+ * @emits Hyperpeer#online
+ * @emits Hyperpeer#error
+ * @emits Hyperpeer#close
+ * @emits Hyperpeer#connection
+ * @emits Hyperpeer#connect
+ * @emits Hyperpeer#disconnect
+ * @emits Hyperpeer#stream
+ * @emits Hyperpeer#data
+ */
 class Hyperpeer extends EventEmitter2 {
     constructor(serverAddress, options) {
         super({
@@ -37,7 +80,14 @@ class Hyperpeer extends EventEmitter2 {
         if (options.key) url += '/' + options.key;
 
         this.ws = new WebSocket(url);
+
+        /**
+         * State of the peer instance. It may have one of the values specified in {@link Hyperpeer#states|Hyperpeer.states}
+         * @member {string}
+         * @readonly
+         */
         this.readyState = Hyperpeer.states.STARTING;
+
         this.peerConnection = null;
         this.stream = options.stream;
         this.videoElement = options.videoElement;
@@ -46,6 +96,12 @@ class Hyperpeer extends EventEmitter2 {
         this._setSelfListeners();        
     }
 
+    /**
+     * Set websocket listeners
+     *
+     * @memberof Hyperpeer
+     * @private
+     */
     _setWebsocketListeners() {
         this.ws.onopen = () => {
             this.readyState = Hyperpeer.states.ONLINE;
@@ -57,7 +113,7 @@ class Hyperpeer extends EventEmitter2 {
                 message = JSON.parse(event.data);
             } catch (e) {
                 //console.error('Invalid JSON message: ' + event.data);
-                this.emit('server.error', new SignalingError(3002, e.message, event.data));
+                this.emit('error', new SignalingError('ERR_BAD_SIGNAL', e.message, event.data));
                 return;
             }
             const serverMessages = new Set(['error', 'status', 'peers']);
@@ -68,7 +124,7 @@ class Hyperpeer extends EventEmitter2 {
             }
         }
         this.ws.onerror = (error) => {
-            this.emit('server.error', error);
+            this.emit('error', new SignalingError('ERR_WS_ERROR', error.message, error));
         }
         this.ws.onclose = (event) => {
             //console.log('WS closed, code: ' + event.code + ', reason: ' + event.reason);
@@ -77,6 +133,12 @@ class Hyperpeer extends EventEmitter2 {
         }
     }
 
+    /**
+     * Some self listeners
+     *
+     * @memberof Hyperpeer
+     * @private
+     */
     _setSelfListeners() {
         this.on('server.status', (message) => {
             if (message.status === 'unpaired') {
@@ -88,10 +150,18 @@ class Hyperpeer extends EventEmitter2 {
         })
     }
 
+    /**
+     * Send messages to the signaling server.
+     *
+     * @param {*} message
+     * @returns {Promise}
+     * @memberof Hyperpeer
+     * @private
+     */
     _send(message) {
         return new Promise((resolve, reject) => {
             if (this.ws.readyState != WebSocket.OPEN) {
-                reject(new Error('Not connected to signaling server. Message not sent: ' + JSON.stringify(message)));
+                reject(new SignalingError('ERR_WS_ERROR', 'Not connected to signaling server. Message not sent: ' + JSON.stringify(message)));
                 return;
             }
             this.ws.send(JSON.stringify(message));
@@ -99,6 +169,13 @@ class Hyperpeer extends EventEmitter2 {
         })
     }
 
+    /**
+     * Send unpair command to the signaling server.
+     *
+     * @returns {Promise}
+     * @memberof Hyperpeer
+     * @private
+     */
     _unpair() {
         return new Promise((resolve, reject) => {
             this._send({ type: 'unpair'}).catch(reject);
@@ -110,6 +187,11 @@ class Hyperpeer extends EventEmitter2 {
         })
     }
 
+    /**
+     * Close the connection with the signaling server and with any remote peer.
+     *
+     * @memberof Hyperpeer
+     */
     close() {
         this.ws.close();
         if (this.peerConnection) {
@@ -118,29 +200,42 @@ class Hyperpeer extends EventEmitter2 {
         }
     }
 
+    /**
+     * Returns a promise that resolve with the list of peers currently connected to the signaling server.
+     *
+     * @returns {Promise<Hyperpeer~peer[]>}
+     * @memberof Hyperpeer
+     */
     getPeers() {
         return this._send({ type: 'listPeers' })
         .then(() => {
             return new Promise((resolve, reject) => {
-                this.once('server.error', reject);
+                this.once('error', reject);
                 this.once('server.peers', (message) => {
-                    this.removeListener('server.error', reject);
+                    this.removeListener('error', reject);
                     resolve(message.peers);
                 });
             })
         })
     }
 
+    /**
+     * Request a peer-to-peer connection with a remote peer.
+     *
+     * @param {string} remotePeerId - id of the remote peer to connect to. 
+     * @returns {Promise} 
+     * @memberof Hyperpeer
+     */
     connectTo(remotePeerId) {
         if (this.readyState != Hyperpeer.states.ONLINE) {
-            return Promise.reject(new Error('Current state is: ' + this.readyState + ', it should be ' + Hyperpeer.states.ONLINE));
+            return Promise.reject(new HyperpeerError('ERR_BAD_STATE', 'Current state is: ' + this.readyState + ', it should be ' + Hyperpeer.states.ONLINE));
         }
         return this._send({ type: 'pair', remotePeerId: remotePeerId })
             .then(() => {
                 return new Promise((resolve, reject) => {
-                    this.once('server.error', reject);
+                    this.once('error', reject);
                     this.once('server.status', (message) => {
-                        this.removeListener('server.error', reject);
+                        this.removeListener('error', reject);
                         if (message.status != 'paired') {
                             reject(new SignalingError(null, 'Cannot pair with peer!'));
                             return;
@@ -151,16 +246,28 @@ class Hyperpeer extends EventEmitter2 {
             })
     }
 
+    /**
+     * Accept an incoming connection from a remote peer. You should call to the {@link Hyperpeer#listenConnections|listenConnections} method first.
+     *
+     * @returns {Promise}
+     * @memberof Hyperpeer
+     */
     acceptConnection() {
         if (this.readyState != Hyperpeer.states.CONNECTING) {
-            return Promise.reject(new Error('Current state is: ' + this.readyState + ', it should be ' + Hyperpeer.states.CONNECTING));
+            return Promise.reject(new HyperpeerError('ERR_BAD_STATE', 'Current state is: ' + this.readyState + ', it should be ' + Hyperpeer.states.CONNECTING));
         }        
         return this._negotiate(true);
     }
 
+    /**
+     * Wait for incoming connections.
+     *
+     * @returns {Promise}
+     * @memberof Hyperpeer
+     */
     listenConnections() {
         if (this.readyState != Hyperpeer.states.ONLINE) {
-            return Promise.reject(new Error('Current state is: ' + this.readyState + ', it should be ' + Hyperpeer.states.ONLINE));
+            return Promise.reject(new HyperpeerError('ERR_BAD_STATE', 'Current state is: ' + this.readyState + ', it should be ' + Hyperpeer.states.ONLINE));
         }
         this.readyState = Hyperpeer.states.LISTENING;
         this.once('server.status', (message) => {
@@ -171,10 +278,16 @@ class Hyperpeer extends EventEmitter2 {
         return Promise.resolve();
     }
 
+    /**
+     * Drop a current connection with a remote peer.
+     *
+     * @returns {Promise}
+     * @memberof Hyperpeer
+     */
     disconnect() {
         return new Promise((resolve, reject) => {
             if (this.readyState != Hyperpeer.states.CONNECTED) {
-                return reject(new Error('Current state is: ' + this.readyState + ', it should be ' + Hyperpeer.states.CONNECTED));
+                return reject(new HyperpeerError('ERR_BAD_STATE', 'Current state is: ' + this.readyState + ', it should be ' + Hyperpeer.states.CONNECTED));
             }
             this.readyState = Hyperpeer.states.DISCONNECTING;
             this._unpair()
@@ -186,14 +299,29 @@ class Hyperpeer extends EventEmitter2 {
         })
     }
 
+    /**
+     * Send a message to the connected remote peer using the established WebRTC data channel.
+     *
+     * @param {*} data
+     * @returns {Promise}
+     * @memberof Hyperpeer
+     */
     send(data) {
         if (this.readyState != Hyperpeer.states.CONNECTED) {
-            return Promise.reject(new Error('Current state is: ' + this.readyState + ', it should be ' + Hyperpeer.states.CONNECTED));
+            return Promise.reject(new HyperpeerError('ERR_BAD_STATE', 'Current state is: ' + this.readyState + ', it should be ' + Hyperpeer.states.CONNECTED));
         } 
         this.peerConnection.send(JSON.stringify(data));
         return Promise.resolve();
     }
 
+    /**
+     *
+     *
+     * @param {*} initiator
+     * @returns {Promise}
+     * @memberof Hyperpeer
+     * @private
+     */
     _negotiate(initiator) {
         return new Promise((resolve, reject) => {
             this.peerConnection = new SimplePeer({
@@ -208,7 +336,7 @@ class Hyperpeer extends EventEmitter2 {
                 this.peerConnection.destroy();
                 this.readyState = Hyperpeer.states.DISCONNECTING;
                 if (this.readyState === Hyperpeer.states.CONNECTING) {
-                    reject(new Error('timeout'));
+                    reject(new PeerConnectionError('ERR_TIMEOUT', 'timeout'));
                 } else if (this.readyState === Hyperpeer.states.CONNECTED) {
                     this.emit('error', new PeerConnectionError('ERR_TIMEOUT', 'timeout'));
                 }
@@ -220,7 +348,7 @@ class Hyperpeer extends EventEmitter2 {
                 } else {
                     this.readyState = Hyperpeer.states.DISCONNECTING;           
                     this.peerConnection.destroy();      
-                    this.emit('error', error);   
+                    this.emit('error', new PeerConnectionError('ERR_WEBRTC_ERROR', error.message, error));   
                 }
             });
     
@@ -246,7 +374,7 @@ class Hyperpeer extends EventEmitter2 {
                 try {
                     msg = JSON.parse(data);
                 } catch(e) {
-                    this.emit('error', 'Received a message with invalid format: ' + e.toString());
+                    this.emit('error', new PeerConnectionError('ERR_BAD_MESSAGE', 'Received a message with invalid format: ' + e.toString()));
                     return;
                 }
                 this.emit('data', msg);
@@ -268,7 +396,21 @@ class Hyperpeer extends EventEmitter2 {
         })
     }
 } 
-
+/**
+ * Possible values of readyState
+ * @name states
+ * @enum {string}
+ * @property {string} STARTING - connecting to signaling server
+ * @property {string} ONLINE - connected to signaling server but not paired to any peer
+ * @property {string} CONNECTING - pairing and establishing a WebRTC connection with peer
+ * @property {string} CONNECTED - WebRTC peer connection and data channel are ready
+ * @property {string} DISCONNECTING - closing peer connection
+ * @property {string} LISTENING - waiting for incoming connections
+ * @property {string} CLOSING - disconnecting from signaling server
+ * @property {string} CLOSED - disconnected from signaling server and not longer usable
+ * @readonly
+ * @memberof Hyperpeer
+ */
 Hyperpeer.states = {
     STARTING: 'starting', // connecting to signaling server
     ONLINE: 'online', // connected to signaling server but not paired to any peer
@@ -279,4 +421,56 @@ Hyperpeer.states = {
     CLOSED: 'closed', // disconnected from signaling server and not longer usable
     LISTENING: 'listening' // waiting for incoming connections
 }
+/**
+ * Element of the list of peers.
+ * @typedef {Object} Hyperpeer~peer
+ * @property {string} id - id of the peer.
+ * @property {string} type - type of the peer.
+ * @property {boolean} busy - Indicates whether the peer is paired and comunicating with another peer.
+ */
+/**
+ * Online event. Emmited when successfully connected to the signaling server.
+ *
+ * @event Hyperpeer#online
+ */
+/**
+ * Error event.
+ *
+ * @event Hyperpeer#error
+ * @type {object} - Error object.
+ */
+/**
+ * Close event. Emmited when disconnected from the signaling server.
+ *
+ * @event Hyperpeer#close
+ */
+/**
+ * Connection event. Emmited when a connection request is received.
+ *
+ * @event Hyperpeer#connection
+ * @type {object} 
+ * @property {string} remotePeerId - id of the remote peer that request the connection.
+ */
+/**
+ * Connect event. Emmited when a WebRTC connection is successfully established with the remote peer.
+ *
+ * @event Hyperpeer#connect
+ */
+/**
+ * Disconnect event. Emmited when disconnected from the remote peer.
+ *
+ * @event Hyperpeer#disconnect
+ */
+/**
+ * Stream event. Emmited when a {@link https://developer.mozilla.org/en-US/docs/Web/API/MediaStream|MediaStream} is received from the remote peer.
+ *
+ * @event Hyperpeer#stream
+ * @type {object} - {@link https://developer.mozilla.org/en-US/docs/Web/API/MediaStream|MediaStream} object
+ */
+/**
+ * Data event. Emmited when a data channel message is received from the remote peer.
+ *
+ * @event Hyperpeer#data
+ * @type {*} - Data
+ */
 module.exports = Hyperpeer;
