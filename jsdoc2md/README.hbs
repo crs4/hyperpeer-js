@@ -1,5 +1,5 @@
-# hyperpeer
-hyperpeer is the javascript module for implementing browser peers in applications based on Hyperpeer.
+# hyperpeer-js
+hyperpeer-js is the javascript module for implementing browser peers in applications based on Hyperpeer.
 This module provides a single class called [`Hyperpeer`](#Hyperpeer) which manages both the connection 
 with the signaling server and the peer-to-peer communication via WebRTC with remote peers.
 
