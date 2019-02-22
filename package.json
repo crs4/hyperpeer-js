@@ -1,6 +1,6 @@
 {
   "name": "hyperpeer-js",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Simple WebRTC-based library for peer-to-peer communication between browsers and media servers using a websockets as signaling channel",
   "main": "index.js",
   "directories": {

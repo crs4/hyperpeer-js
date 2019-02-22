@@ -59,6 +59,7 @@ class PeerConnectionError extends HyperpeerError {
  * @param {string=} options.key - Peer validation string. It may be used by the server to verify the peer.
  * @param {Object=} options.videoElement - Video tag element that will be used as sink of the incoming media stream.
  * @param {Object=} options.stream - {@link https://developer.mozilla.org/en-US/docs/Web/API/MediaStream|MediaStream} object that will be sent to the remote peer.
+ * @param {Object=} options.datachannelOptions - A {@link https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/createDataChannel#RTCDataChannelInit_dictionary|RTCDataChannelInit dictionary} providing configuration options for the data channel.
  * @emits Hyperpeer#online
  * @emits Hyperpeer#error
  * @emits Hyperpeer#close
@@ -91,6 +92,7 @@ class Hyperpeer extends EventEmitter2 {
         this.peerConnection = null;
         this.stream = options.stream;
         this.videoElement = options.videoElement;
+        this.datachannelOptions = options.datachannelOptions
 
         this._setWebsocketListeners();
         this._setSelfListeners();        
@@ -326,7 +328,8 @@ class Hyperpeer extends EventEmitter2 {
         return new Promise((resolve, reject) => {
             this.peerConnection = new SimplePeer({
                 initiator: initiator,
-                stream: this.stream
+                stream: this.stream,
+                channelConfig: this.datachannelOptions
             });
 
             const timeout = initiator ? 5000 : 10000;

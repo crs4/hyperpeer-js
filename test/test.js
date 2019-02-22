@@ -79,7 +79,15 @@ describe('hyperpeer', () => {
   it('should exchange data with a remote peer', function (done) {
     hp = new Hyperpeer(serverAddress, { id: 'id1', type: 'type1' });
     hp.on('online', () => {
-      hp2 = new Hyperpeer(serverAddress, { id: 'id2', type: 'type1' });
+      hp2 = new Hyperpeer(serverAddress, { 
+        id: 'id2', 
+        type: 'type1',
+        datachannelOptions: {
+          ordered: false,
+          maxPacketLifeTime: 0,
+          protocol: ''
+        } 
+      });
       hp.on('error', done);
       hp2.on('error', done);
       hp2.on('connection', hp2.acceptConnection);

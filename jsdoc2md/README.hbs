@@ -13,35 +13,46 @@ and [EventEmitter2](https://www.npmjs.com/package/eventemitter2).
 # Example
 ```js
 const Hyperpeer = require('hyperpeer')
-const serverAddress = 'ws://localhost:8080';
+const serverAddress = 'ws://localhost:8080'
 
-let video = document.getElementById('video');
+// The <video> element to use for showing remote media
+const video = document.getElementById('video')
 
+// Get local media media (video and audio)
 navigator.mediaDevices.getUserMedia({ video: true, audio: true })
 .then((stream) => {
-    let hp = new Hyperpeer(serverAddress, { 
-        id: 'id1', 
+    // Instantiate Hyperpeer with an id, a type, the input media stream and the output <video> element
+    const hp = new Hyperpeer(serverAddress, { 
+        id: 'myId', 
         type: 'type1',
         stream: stream,
         videoElement: video
-    });
+    })
+
+    // Once get the 'online' event get the available peers
     hp.on('online', () => {
         hp.getPeers()
         .then((peers) => {
-            if (peers.length) {
-                return hp.connectTo(peers[0].id)
+            // If there is more than one peer, connect to the first that is not me
+            if (peers.length > 1) {
+                const remotePeerId = peers[0].id != 'myId' ? peers[0].id : peers[1].id
+                return hp.connectTo(remotePeerId)
+            } else {
+                // Otherwise listen for an incoming connection and accept it when it arrives
+                hp.on('connection', hp.acceptConnection);
+                return hp.listenConnections()
             }
-            hp.on('connection', hp.acceptConnection);
-            return hp.listenConnections()
         })
         .catch((error) => { alert(error) })
     })
 
+    // Once connected say 'hi'
     hp.on('connect', () => {
         console.log('Peer-to-peer connection established!')
-        hp.send('ciao')
+        hp.send('hi')
     })
 
+    // On data print print whatever the remote peer says
     hp.on('data', (data) => {
         console.log('Remote peer says: ' + data)
     })
@@ -52,7 +63,7 @@ navigator.mediaDevices.getUserMedia({ video: true, audio: true })
 })
 .catch((error) => {
     alert('mediaDevices error: ' + error)
-}); 
+})
 
  ```
 
