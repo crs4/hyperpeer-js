@@ -10,7 +10,10 @@ const SimplePeer = require('simple-peer');
  */
 class HyperpeerError extends Error {
     constructor(code, message, data) {
-        super(message + ': ' + JSON.stringify(data));
+        if (data) {
+            message += JSON.stringify(data)
+        }
+        super(message);
         this.name = 'HyperpeerError';
         this.code = code;
         this.msg = message;
@@ -60,10 +63,12 @@ class PeerConnectionError extends HyperpeerError {
  * @param {Object=} options.videoElement - Video tag element that will be used as sink of the incoming media stream.
  * @param {Object=} options.stream - {@link https://developer.mozilla.org/en-US/docs/Web/API/MediaStream|MediaStream} object that will be sent to the remote peer.
  * @param {Object=} options.datachannelOptions - A {@link https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection/createDataChannel#RTCDataChannelInit_dictionary|RTCDataChannelInit dictionary} providing configuration options for the data channel.
+ * @param {number=} [options.connectionTimeout=15] - Timeout in seconds for canceling a connection request.
  * @emits Hyperpeer#online
  * @emits Hyperpeer#error
  * @emits Hyperpeer#close
  * @emits Hyperpeer#connection
+ * @emits Hyperpeer#disconnection
  * @emits Hyperpeer#connect
  * @emits Hyperpeer#disconnect
  * @emits Hyperpeer#stream
@@ -93,6 +98,7 @@ class Hyperpeer extends EventEmitter2 {
         this.stream = options.stream;
         this.videoElement = options.videoElement;
         this.datachannelOptions = options.datachannelOptions
+        this.connectionTimeout = options.connectionTimeout || 15 // 15 seconds timeout
 
         this._setWebsocketListeners();
         this._setSelfListeners();        
@@ -131,7 +137,7 @@ class Hyperpeer extends EventEmitter2 {
         this.ws.onclose = (event) => {
             //console.log('WS closed, code: ' + event.code + ', reason: ' + event.reason);
             this.readyState = Hyperpeer.states.CLOSED;
-            this.emit('close', event);
+            this.emit('close', 'WS closed, code: ' + event.code + ', reason: ' + event.reason);
         }
     }
 
@@ -144,10 +150,29 @@ class Hyperpeer extends EventEmitter2 {
     _setSelfListeners() {
         this.on('server.status', (message) => {
             if (message.status === 'unpaired') {
-                this.readyState = Hyperpeer.states.ONLINE;
-                if (this.peerConnection) this.peerConnection.destroy();
+                if (this.readyState === Hyperpeer.states.CONNECTED || this.readyState === Hyperpeer.states.CONNECTING) {
+                    this.emit('disconnection')
+                } 
             } else if (message.status === 'paired') {
-                this.readyState = Hyperpeer.states.CONNECTING;
+                // Pairing is expected when listening or starting a connection
+                if (this.readyState === Hyperpeer.states.LISTENING || this.readyState === Hyperpeer.states.CONNECTING) {
+                    this.readyState = Hyperpeer.states.CONNECTING;
+                    this.emit('connection', { remotePeerId: message.remotePeerId })
+                } else {
+                    // If pairing was not expected then rejects connection (unpair) immediately
+                    this._unpair()
+                }
+            }
+        })
+        this.on('disconnect', () => {
+            this.readyState = Hyperpeer.states.ONLINE
+        })
+        this.on('connect', () => {
+            this.readyState = Hyperpeer.states.CONNECTED
+        })
+        this.on('disconnection', () => {
+            if (!this.peerConnection) {
+                this.readyState = Hyperpeer.states.ONLINE
             }
         })
     }
@@ -180,10 +205,12 @@ class Hyperpeer extends EventEmitter2 {
      */
     _unpair() {
         return new Promise((resolve, reject) => {
-            this._send({ type: 'unpair'}).catch(reject);
+            this._send({ type: 'unpair'}).catch(reject)
             this.once('server.status', (message) => {
                 if (message.status === 'unpaired') {
-                    resolve();
+                    resolve()
+                } else {
+                    reject(new SignalingError('ERR_SIGNAL_ERR', 'Cannot unpair!'))
                 }
             })
         })
@@ -222,7 +249,7 @@ class Hyperpeer extends EventEmitter2 {
     }
 
     /**
-     * Request a peer-to-peer connection with a remote peer.
+     * Request a peer-to-peer connection with a remote peer. 
      *
      * @param {string} remotePeerId - id of the remote peer to connect to. 
      * @returns {Promise} 
@@ -230,26 +257,23 @@ class Hyperpeer extends EventEmitter2 {
      */
     connectTo(remotePeerId) {
         if (this.readyState != Hyperpeer.states.ONLINE) {
-            return Promise.reject(new HyperpeerError('ERR_BAD_STATE', 'Current state is: ' + this.readyState + ', it should be ' + Hyperpeer.states.ONLINE));
+            return Promise.reject(new HyperpeerError('ERR_BAD_STATE', 'Current state is: ' + this.readyState + ', it should be ' + Hyperpeer.states.ONLINE))
         }
         return this._send({ type: 'pair', remotePeerId: remotePeerId })
             .then(() => {
                 return new Promise((resolve, reject) => {
+                    this.readyState = Hyperpeer.states.CONNECTING
                     this.once('error', reject);
-                    this.once('server.status', (message) => {
-                        this.removeListener('error', reject);
-                        if (message.status != 'paired') {
-                            reject(new SignalingError(null, 'Cannot pair with peer!'));
-                            return;
-                        }
-                        resolve(this._negotiate());
-                    });
+                    this.once('connection', () => {
+                        this.removeListener('error', reject)
+                        resolve(this._negotiate())
+                    })
                 })
             })
     }
 
     /**
-     * Accept an incoming connection from a remote peer. You should call to the {@link Hyperpeer#listenConnections|listenConnections} method first.
+     * Accept an incoming connection from a remote peer. You should call to the {@link Hyperpeer#listenConnections|listenConnections()} method first.
      *
      * @returns {Promise}
      * @memberof Hyperpeer
@@ -272,32 +296,30 @@ class Hyperpeer extends EventEmitter2 {
             return Promise.reject(new HyperpeerError('ERR_BAD_STATE', 'Current state is: ' + this.readyState + ', it should be ' + Hyperpeer.states.ONLINE));
         }
         this.readyState = Hyperpeer.states.LISTENING;
-        this.once('server.status', (message) => {
-            if (message.status === 'paired') {
-                this.emit('connection', { remotePeerId: message.remotePeerId });
-            } 
-        })
         return Promise.resolve();
     }
 
     /**
-     * Drop a current connection with a remote peer.
+     * Drop the current connection with the remote peer.
      *
      * @returns {Promise}
      * @memberof Hyperpeer
      */
     disconnect() {
         return new Promise((resolve, reject) => {
-            if (this.readyState != Hyperpeer.states.CONNECTED) {
-                return reject(new HyperpeerError('ERR_BAD_STATE', 'Current state is: ' + this.readyState + ', it should be ' + Hyperpeer.states.CONNECTED));
+            if (this.readyState != Hyperpeer.states.CONNECTED && this.readyState != Hyperpeer.states.CONNECTING) {
+                return resolve();
             }
-            this.readyState = Hyperpeer.states.DISCONNECTING;
             this._unpair()
             .then(() => {
-                this.peerConnection.destroy();
+                if (this.peerConnection) {
+                    this.once('disconnect', resolve)
+                } else {
+                    this.emit('disconnect')
+                    resolve()
+                }
             })
-            .catch(reject);
-            this.on('disconnect', resolve);
+            .catch(reject)
         })
     }
 
@@ -330,35 +352,39 @@ class Hyperpeer extends EventEmitter2 {
                 initiator: initiator,
                 stream: this.stream,
                 channelConfig: this.datachannelOptions
-            });
+            })
 
-            const timeout = initiator ? 5000 : 10000;
+            const timeout = initiator ? 5000 : this.connectionTimeout * 1000
             const timeoutId = setTimeout(() => {
-                console.error('Peer connection timeout!');
-                this.removeAllListeners('peer.*');
-                this.peerConnection.destroy();
-                this.readyState = Hyperpeer.states.DISCONNECTING;
+                this.removeAllListeners('peer.*')
                 if (this.readyState === Hyperpeer.states.CONNECTING) {
-                    reject(new PeerConnectionError('ERR_TIMEOUT', 'timeout'));
+                    this.disconnect()
                 } else if (this.readyState === Hyperpeer.states.CONNECTED) {
-                    this.emit('error', new PeerConnectionError('ERR_TIMEOUT', 'timeout'));
+                    this.emit('error', new PeerConnectionError('ERR_TIMEOUT', 'timeout'))
+                    this.disconnect()
                 }
-            }, timeout);
+            }, timeout)
     
             this.peerConnection.on('error', (error) => {
                 if (this.readyState === Hyperpeer.states.CONNECTING) {
-                    reject(error);
-                } else {
-                    this.readyState = Hyperpeer.states.DISCONNECTING;           
-                    this.peerConnection.destroy();      
-                    this.emit('error', new PeerConnectionError('ERR_WEBRTC_ERROR', error.message, error));   
+                    reject(new PeerConnectionError('ERR_WEBRTC_ERROR', error.message, error))
+                } else {     
+                    this.emit('error', new PeerConnectionError('ERR_WEBRTC_ERROR', error.message, error))
                 }
-            });
+                this.disconnect()
+            })
+
+            this.once('disconnection', () => {
+                if (this.readyState === Hyperpeer.states.CONNECTING) {
+                    reject(new PeerConnectionError('ERR_CONNECTION_REFUSED', 'Connection refused or canceled'))
+                } 
+                this.readyState = Hyperpeer.states.DISCONNECTING
+                this.peerConnection.destroy()
+            })
     
             this.peerConnection.on('connect', () => {
-                this.emit('connect');
-                clearTimeout(timeoutId);
-                this.readyState = Hyperpeer.states.CONNECTED;
+                this.emit('connect')
+                clearTimeout(timeoutId)
                 resolve();
             });
     
@@ -448,11 +474,21 @@ Hyperpeer.states = {
  * @event Hyperpeer#close
  */
 /**
- * Connection event. Emitted when a connection request is received.
+ * Connection event. Emitted when a connection request is received. If {@link Hyperpeer#listenConnections|listenConnections()} 
+ * was called, then {@link Hyperpeer#acceptConnection|acceptConnection()} should be called to proceed with the 
+ * establishment of the peer-to-peer connection. If {@link Hyperpeer#connectTo|connectTo()} was called, then
+ * the establishment of the peer-to-peer connection begins immediately after this event.
  *
  * @event Hyperpeer#connection
  * @property {object} details
  * @property {string} details.remotePeerId - id of the remote peer that request the connection.
+ */
+/**
+ * Disconnection event. Emitted when the peer-to-peer connection is refused or canceled. This event indicates that the
+ * peer-to-peer connection is being closed. Listen to the {@link Hyperpeer#disconnect|disconnect} event to know when the WebRTC connection
+ * is truly closed.
+ *
+ * @event Hyperpeer#disconnection
  */
 /**
  * Connect event. Emitted when a WebRTC connection is successfully established with the remote peer.
@@ -460,7 +496,7 @@ Hyperpeer.states = {
  * @event Hyperpeer#connect
  */
 /**
- * Disconnect event. Emitted when disconnected from the remote peer.
+ * Disconnect event. Emitted when disconnected from the remote peer and the WebRTC connection is closed.
  *
  * @event Hyperpeer#disconnect
  */

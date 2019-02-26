@@ -159,4 +159,88 @@ describe('hyperpeer', () => {
     })
     .catch(done);
   })
+  it('should reject a peer connection if remote peer is not listening', function (done) {
+    hp = new Hyperpeer(serverAddress, { id: 'id1', type: 'type1' });
+
+    hp.on('online', () => {
+      hp2 = new Hyperpeer(serverAddress, { id: 'id2', type: 'type1' });
+      
+      hp.on('error', done);
+      hp2.on('error', done);
+      hp2.on('online', () => {
+        hp2.connectTo('id1')
+          .catch((error) => {
+            expect(error.code).to.be.equal('ERR_CONNECTION_REFUSED');
+            expect(hp.readyState).to.be.equal(Hyperpeer.states.ONLINE);
+            done()
+          })
+      })
+    })
+  })
+  it('should reject a peer connection if remote peer do not answer before timeout', function (done) {
+    this.timeout(2000);
+    hp = new Hyperpeer(serverAddress, { id: 'id1', type: 'type1' });
+    
+    hp.on('online', () => {
+      hp2 = new Hyperpeer(serverAddress, { id: 'id2', type: 'type1', connectionTimeout: 1});
+      let onlineAgain = false
+      function ok() {
+        if (onlineAgain) return done()
+        onlineAgain = true
+      }
+
+      hp.on('error', done);
+      hp2.on('error', done);
+      hp2.on('online', () => {
+        hp.on('connection', () => {
+          hp.on('disconnection', () => {
+            expect(hp.readyState).to.be.equal(Hyperpeer.states.ONLINE);
+            ok()
+          })
+        })
+        hp.listenConnections()
+
+        hp2.connectTo('id1')
+        .catch((error) => {
+          expect(error.code).to.be.equal('ERR_CONNECTION_REFUSED');
+          expect(hp2.readyState).to.be.equal(Hyperpeer.states.ONLINE);
+          ok()
+        })
+      })
+    })
+  })
+  it('should reject a peer connection if remote peer call disconnect() to refuse', function (done) {
+    this.timeout(2000);
+    hp = new Hyperpeer(serverAddress, { id: 'id1', type: 'type1' });
+    
+    hp.on('online', () => {
+      hp2 = new Hyperpeer(serverAddress, { id: 'id2', type: 'type1'});
+      let onlineAgain = false
+      function ok() {
+        if (onlineAgain) return done()
+        onlineAgain = true
+      }
+
+      hp.on('error', done);
+      hp2.on('error', done);
+      hp2.on('online', () => {
+        hp.on('connection', () => {
+          hp.on('disconnection', () => {
+            expect(hp.readyState).to.be.equal(Hyperpeer.states.ONLINE);
+            ok()
+          })
+          hp.disconnect()
+          .catch(done)
+        })
+        hp.listenConnections()
+
+        hp2.connectTo('id1')
+          .catch((error) => {
+            expect(error.code).to.be.equal('ERR_CONNECTION_REFUSED');
+            expect(hp2.readyState).to.be.equal(Hyperpeer.states.ONLINE);
+            ok()
+          })
+      })
+    })
+  })
 })

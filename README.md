@@ -74,7 +74,7 @@ navigator.mediaDevices.getUserMedia({ video: true, audio: true })
 ## Hyperpeer ⇐ <code>EventEmitter2</code>
 **Kind**: global class  
 **Extends**: <code>EventEmitter2</code>  
-**Emits**: [<code>online</code>](#Hyperpeer+event_online), [<code>error</code>](#Hyperpeer+event_error), [<code>close</code>](#Hyperpeer+event_close), [<code>connection</code>](#Hyperpeer+event_connection), [<code>connect</code>](#Hyperpeer+event_connect), [<code>disconnect</code>](#Hyperpeer+event_disconnect), [<code>stream</code>](#Hyperpeer+event_stream), [<code>data</code>](#Hyperpeer+event_data)  
+**Emits**: [<code>online</code>](#Hyperpeer+event_online), [<code>error</code>](#Hyperpeer+event_error), [<code>close</code>](#Hyperpeer+event_close), [<code>connection</code>](#Hyperpeer+event_connection), [<code>disconnection</code>](#Hyperpeer+event_disconnection), [<code>connect</code>](#Hyperpeer+event_connect), [<code>disconnect</code>](#Hyperpeer+event_disconnect), [<code>stream</code>](#Hyperpeer+event_stream), [<code>data</code>](#Hyperpeer+event_data)  
 
 * [Hyperpeer](#Hyperpeer) ⇐ <code>EventEmitter2</code>
     * [new Hyperpeer(serverAddress, options)](#new_Hyperpeer_new)
@@ -91,6 +91,7 @@ navigator.mediaDevices.getUserMedia({ video: true, audio: true })
         * ["error"](#Hyperpeer+event_error)
         * ["close"](#Hyperpeer+event_close)
         * ["connection"](#Hyperpeer+event_connection)
+        * ["disconnection"](#Hyperpeer+event_disconnection)
         * ["connect"](#Hyperpeer+event_connect)
         * ["disconnect"](#Hyperpeer+event_disconnect)
         * ["stream"](#Hyperpeer+event_stream)
@@ -151,7 +152,7 @@ Request a peer-to-peer connection with a remote peer.
 <a name="Hyperpeer+acceptConnection"></a>
 
 ### hyperpeer.acceptConnection() ⇒ <code>Promise</code>
-Accept an incoming connection from a remote peer. You should call to the [listenConnections](#Hyperpeer+listenConnections) method first.
+Accept an incoming connection from a remote peer. You should call to the [listenConnections()](#Hyperpeer+listenConnections) method first.
 
 **Kind**: instance method of [<code>Hyperpeer</code>](#Hyperpeer)  
 <a name="Hyperpeer+listenConnections"></a>
@@ -204,7 +205,10 @@ Close event. Emitted when disconnected from the signaling server.
 <a name="Hyperpeer+event_connection"></a>
 
 ### "connection"
-Connection event. Emitted when a connection request is received.
+Connection event. Emitted when a connection request is received. If [listenConnections()](#Hyperpeer+listenConnections) 
+was called, then [acceptConnection()](#Hyperpeer+acceptConnection) should be called to proceed with the 
+establishment of the peer-to-peer connection. If [connectTo()](#Hyperpeer+connectTo) was called, then
+the establishment of the peer-to-peer connection begins immediately after this event.
 
 **Kind**: event emitted by [<code>Hyperpeer</code>](#Hyperpeer)  
 **Properties**
@@ -214,6 +218,14 @@ Connection event. Emitted when a connection request is received.
 | details | <code>object</code> |  |
 | details.remotePeerId | <code>string</code> | id of the remote peer that request the connection. |
 
+<a name="Hyperpeer+event_disconnection"></a>
+
+### "disconnection"
+Disconnection event. Emitted when a connection is refused or closed by the remote peer. This event indicates that the
+peer-to-peer connection is being closed. Listen to the [disconnect](#Hyperpeer+disconnect) event to know when the WebRTC connection
+is truly closed.
+
+**Kind**: event emitted by [<code>Hyperpeer</code>](#Hyperpeer)  
 <a name="Hyperpeer+event_connect"></a>
 
 ### "connect"
@@ -223,7 +235,7 @@ Connect event. Emitted when a WebRTC connection is successfully established with
 <a name="Hyperpeer+event_disconnect"></a>
 
 ### "disconnect"
-Disconnect event. Emitted when disconnected from the remote peer.
+Disconnect event. Emitted when disconnected from the remote peer and the WebRTC connection is closed.
 
 **Kind**: event emitted by [<code>Hyperpeer</code>](#Hyperpeer)  
 <a name="Hyperpeer+event_stream"></a>
