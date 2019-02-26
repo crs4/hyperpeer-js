@@ -124,9 +124,11 @@ class Hyperpeer extends EventEmitter2 {
                 this.emit('error', new SignalingError('ERR_BAD_SIGNAL', e.message, event.data));
                 return;
             }
-            const serverMessages = new Set(['error', 'status', 'peers']);
+            const serverMessages = new Set(['status', 'peers']);
             if (serverMessages.has(message.type)) {
                 this.emit('server.' + message.type, message);
+            } else if (message.type === 'error'){
+                this.emit('error', new SignalingError(message.code, message.message))
             } else {
                 this.emit('peer.signal', message);
             }
@@ -295,8 +297,10 @@ class Hyperpeer extends EventEmitter2 {
         if (this.readyState != Hyperpeer.states.ONLINE) {
             return Promise.reject(new HyperpeerError('ERR_BAD_STATE', 'Current state is: ' + this.readyState + ', it should be ' + Hyperpeer.states.ONLINE));
         }
-        this.readyState = Hyperpeer.states.LISTENING;
-        return Promise.resolve();
+        return this._send({ type: 'ready' })
+            .then(() => {
+                this.readyState = Hyperpeer.states.LISTENING;
+            })
     }
 
     /**

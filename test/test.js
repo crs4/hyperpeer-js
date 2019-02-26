@@ -30,15 +30,18 @@ describe('hyperpeer', () => {
     hp.on('online', () => { 
       hp2 = new Hyperpeer(serverAddress, { id: 'id2', type: 'type1' });
       hp2.on('online', () => {
-        hp.getPeers()
-        .then((peers) => {
-          expect(peers).to.be.an.instanceof(Array);
-          expect(peers).to.have.lengthOf(2);
-          expect(peers[0]).to.include({ id: 'id1', type: 'type1' });
-          expect(peers[1]).to.include({ id: 'id2', type: 'type1' });     
-          done();
-        })
-        .catch(done)
+        hp2.listenConnections()
+        setTimeout(() => {
+          hp.getPeers()
+          .then((peers) => {
+            expect(peers).to.be.an.instanceof(Array);
+            expect(peers).to.have.lengthOf(2);
+            expect(peers[0]).to.include({ id: 'id1', type: 'type1', busy: true });
+            expect(peers[1]).to.include({ id: 'id2', type: 'type1', busy: false });     
+            done();
+          })
+          .catch(done)
+        }, 50)
       })
     })
   })
@@ -60,6 +63,7 @@ describe('hyperpeer', () => {
       hp2.on('error', done);
       hp2.on('online', () => {
         hp2.listenConnections()
+        .then(() => hp.getPeers())
         .then(() => {
           expect(hp2.readyState).to.be.equal(Hyperpeer.states.LISTENING);
           return hp.connectTo('id2');
@@ -102,6 +106,7 @@ describe('hyperpeer', () => {
       })
       hp2.on('online', () => {
         hp2.listenConnections()
+        .then(() => hp.getPeers())
         .then(() => {
           return hp.connectTo('id2');
         })
@@ -135,6 +140,7 @@ describe('hyperpeer', () => {
         });
         hp2.on('online', () => {
           hp2.listenConnections()
+            .then(() => hp.getPeers())
             .then(() => {
               return hp.connectTo('id2');
             })
@@ -164,16 +170,18 @@ describe('hyperpeer', () => {
 
     hp.on('online', () => {
       hp2 = new Hyperpeer(serverAddress, { id: 'id2', type: 'type1' });
-      
+      hp2.onAny(function (event, value) {
+        console.log(event + ': ' + JSON.stringify(value));
+      });
       hp.on('error', done);
-      hp2.on('error', done);
+      //hp2.on('error', done);
       hp2.on('online', () => {
         hp2.connectTo('id1')
-          .catch((error) => {
-            expect(error.code).to.be.equal('ERR_CONNECTION_REFUSED');
-            expect(hp.readyState).to.be.equal(Hyperpeer.states.ONLINE);
-            done()
-          })
+        .catch((error) => {
+          expect(hp.readyState).to.be.equal(Hyperpeer.states.ONLINE);
+          expect(error.code).to.be.equal('ERR_PEER_BUSY');
+          done()
+        })
       })
     })
   })
@@ -199,11 +207,13 @@ describe('hyperpeer', () => {
           })
         })
         hp.listenConnections()
-
-        hp2.connectTo('id1')
+        .then(() => hp.getPeers())
+        .then(() => {
+          return hp2.connectTo('id1')
+        })
         .catch((error) => {
-          expect(error.code).to.be.equal('ERR_CONNECTION_REFUSED');
           expect(hp2.readyState).to.be.equal(Hyperpeer.states.ONLINE);
+          expect(error.code).to.be.equal('ERR_CONNECTION_REFUSED');
           ok()
         })
       })
@@ -233,13 +243,15 @@ describe('hyperpeer', () => {
           .catch(done)
         })
         hp.listenConnections()
-
-        hp2.connectTo('id1')
-          .catch((error) => {
-            expect(error.code).to.be.equal('ERR_CONNECTION_REFUSED');
-            expect(hp2.readyState).to.be.equal(Hyperpeer.states.ONLINE);
-            ok()
-          })
+        .then(() => hp.getPeers())
+        .then(() => {
+          return hp2.connectTo('id1')
+        })
+        .catch((error) => {
+          expect(hp2.readyState).to.be.equal(Hyperpeer.states.ONLINE);
+          expect(error.code).to.be.equal('ERR_CONNECTION_REFUSED');
+          ok()
+        })
       })
     })
   })
