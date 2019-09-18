@@ -8,10 +8,11 @@
   },
   "scripts": {
     "test": "node ./test/testServer.js & beefy ./test/test.js:bundle.test.js 8886  --index ./test/test.html",
-    "doc": "jsdoc2md -t jsdoc2md/README.hbs index.js > README.md"
+    "doc": "jsdoc2md -t jsdoc2md/README.hbs index.js > README.md",
+    "build": "browserify -r ./ > ./dist/hyperpeer-js.min.js"
   },
   "author": "Jose F. Saenz-Cogollo",
-  "license": "ISC",
+  "license": "GPL-3.0",
   "devDependencies": {
     "beefy": "^2.1.8",
     "chai": "^4.2.0",
