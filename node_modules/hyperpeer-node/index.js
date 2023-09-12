@@ -93,12 +93,12 @@ class HyperpeerServer extends WebSocket.Server {
     try {
       peerCredentials = this.urlPattern.match(pathname);
     } catch (e) {
-      return ws.close('ERR_BAD_REQUEST', 'Invalid peer credentials!');
+      return ws.close(undefined, 'Invalid peer credentials!');
     }
     let { peerType, peerId, peerKey } = peerCredentials;
     if (!peerId) peerId = 'peer' + Date.now();
     if (this.peers.has(peerId)) {
-      return ws.close('ERR_FORBIDDEN', 'Peer Id already in use!');
+      return ws.close(undefined, 'Peer Id already in use!');
     }
     this.peers.set(peerId, new Peer(peerType, peerId, ws));
     console.log('Peer %s connected', peerId);

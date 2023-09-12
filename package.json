@@ -16,7 +16,7 @@
   "devDependencies": {
     "beefy": "^2.1.8",
     "chai": "^4.2.0",
-    "hyperpeer-node": "git+ssh://git@156.148.14.162:5000/icare2/hyperpeer-node.git",
+    "hyperpeer-node": "git+https://github.com/crs4/hyperpeer-node.git",
     "jsdoc-to-markdown": "^4.0.1",
     "mocha": "^5.2.0"
   },
